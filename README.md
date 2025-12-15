@@ -64,7 +64,7 @@ The **MovieLens 25M** dataset contains:
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/AgaHei/Movie_Recommendation.git
    cd data
    ```
 
