@@ -1,0 +1,20 @@
+# Core data manipulation and analysis
+pandas==2.3.3
+numpy==2.3.5
+
+# Visualization
+matplotlib==3.10.8
+seaborn==0.13.2
+
+# Machine learning
+scikit-learn==1.8.0
+scipy==1.16.3
+
+# Data storage and reading
+pyarrow==22.0.0
+
+# Jupyter notebook support
+ipykernel==7.1.0
+ipython==9.8.0
+jupyter_client==8.7.0
+jupyter_core==5.9.1
