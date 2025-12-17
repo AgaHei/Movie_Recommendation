@@ -32,8 +32,15 @@ data/
 ├── notebooks/
 │   ├── 01_EDA_MovieLens_25M.ipynb          # Exploratory data analysis
 │   └── 02_Data_Preparation_MovieLens_25M.ipynb  # Data preparation & feature engineering
+├── ingestion_scripts/
+│   ├── initial_load_lighter_dataset.py      # Transfer prepared data to Neon database
+│   ├── check_rows.py                        # Utility to verify row counts in Neon
+│   ├── .env                                 # Database credentials (not tracked)
+│   └── .env.example                         # Template for database credentials
 ├── raw/                                      # Raw MovieLens 25M data files (not tracked)
 ├── prepared/                                 # Processed data artifacts (not tracked)
+│   ├── ratings_initial_ml.parquet          # 1M row reduced dataset for Neon
+│   └── buffer_batches/                      # 5 weekly batches for Airflow ingestion
 ├── .venv/                                    # Virtual environment (not tracked)
 ├── requirements.txt                          # Python dependencies
 ├── README.md                                 # This file
@@ -52,108 +59,27 @@ The **MovieLens 25M** dataset contains:
 
 **Source**: [GroupLens Research - MovieLens 25M](https://grouplens.org/datasets/movielens/25m/)
 
-## 🚀 Getting Started
+**Note**: The `raw/` folder is excluded from Git (see `.gitignore`). Each team member must download the data independently.
 
-### Prerequisites
-
-- Python 3.12+ (tested with Python 3.12.10)
-- pip package manager
-- Virtual environment tool (venv)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/AgaHei/Movie_Recommendation.git
-   cd data
-   ```
-
-2. **Create and activate virtual environment**
-   ```bash
-   # Windows (PowerShell)
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-
-   # macOS/Linux
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Download MovieLens 25M dataset**
-   
-   Option A: Manual download
-   - Visit: https://grouplens.org/datasets/movielens/25m/
-   - Download `ml-25m.zip` (~265 MB)
-   - Extract to `raw/` directory
-   
-   Option B: Automated download script
-   ```bash
-   # Run this Python script to download and extract the dataset
-   python scripts/download_dataset.py
-   ```
-   
-   **Note**: The `raw/` folder is excluded from Git (see `.gitignore`). Each team member must download the data independently.
-
-### Running the Notebooks
-
-1. **Start Jupyter**
-   ```bash
-   jupyter notebook
-   ```
-
-2. **Run notebooks in order**:
-   - `01_EDA_MovieLens_25M.ipynb` - Explore the dataset
-   - `02_Data_Preparation_MovieLens_25M.ipynb` - Prepare data for ML models
 
 ## 📥 Data Management
 
-### For Team Members
+## � Database: Neon PostgreSQL
 
-Since data files are excluded from Git (`.gitignore`), each team member must set up their local data:
+We use **Neon** (serverless PostgreSQL) for storing prepared data and enabling the MLOps pipeline.
 
-**Step 1: Download the dataset**
+### Free Tier Constraint
+- **Storage limit**: 512 MB
+- **Challenge**: Full dataset (~22,5M rows in `ratings_train.parquet` and `ratings_test.parquet` altogether) exceeds this limit
+- **Solution**: Created a reduced initial dataset with **1M most recent rows extracted from `ratings_test.parquet`** (=> new file created `ratings_initial_ml.parquet`)
 
-Using the automated script (recommended):
-```bash
-python scripts/download_dataset.py
-```
+### What's in Neon?
+- `ratings` table: 1M rows (700K train + 300K test)
+- `movies` table: 62K movies with features
+- `ratings_buffer` table: Empty structure (batches ingested by Airflow)
+- Metadata tables: `ingestion_metadata`, `model_metrics`, `drift_alerts`
 
-Or manually:
-1. Visit: https://grouplens.org/datasets/movielens/25m/
-2. Download `ml-25m.zip` (~265 MB)
-3. Extract to `raw/` directory
-
-**Step 2: Generate processed artifacts**
-
-Once you have the raw data, run the preparation notebook to generate the `prepared/` folder:
-```bash
-jupyter notebook notebooks/02_Data_Preparation_MovieLens_25M.ipynb
-```
-
-This creates the necessary Parquet files for model training (~2.6 GB, generated locally).
-
-### Data Workflow
-
-```
-1. Clone repository
-   ↓
-2. Download raw data (raw/ folder)
-   ↓
-3. Run preparation notebook
-   ↓
-4. Generated prepared/ folder locally
-   ↓
-5. Train ML models using prepared/ data
-```
-
-**Note**: `raw/` and `prepared/` folders are in `.gitignore` - they're never committed to Git.
-
-## 📊 Key Features
+## �📊 Key Features
 
 ### Data Preparation
 - **Memory-efficient processing**: Handles 25M+ rows without OOM errors
@@ -166,12 +92,17 @@ This creates the necessary Parquet files for model training (~2.6 GB, generated 
 ### Artifacts Generated
 After running the preparation notebook, the following files are created in `prepared/`:
 
-- `ratings_train.parquet` (~1.5 GB) - Training interactions
-- `ratings_test.parquet` (~430 MB) - Test interactions
-- `ratings_buffer.parquet` (~215 MB) - Continuous monitoring buffer
+**Full dataset (for local development)**:
+- `ratings_train.parquet` (~1.5 GB) - Training interactions (17.5M rows)
+- `ratings_test.parquet` (~430 MB) - Test interactions (5M rows)
+- `ratings_buffer.parquet` (~215 MB) - Continuous monitoring buffer (2.5M rows)
 - `movie_features_small.parquet` (~500 MB) - Compact movie features with PCA embeddings
 - `movie_features_uni.parquet` - Full movie features (reference only)
 - `movie_embeddings.parquet` - PCA genome embeddings (reference only)
+
+**Reduced dataset (for Neon free tier)**:
+- `ratings_initial_ml.parquet` - 1M most recent rows from test set
+- `buffer_batches/batch_w{1-5}.parquet` - 5 weekly batches for Airflow ingestion
 
 ## 🔬 Analysis Highlights
 
@@ -205,12 +136,15 @@ After running the preparation notebook, the following files are created in `prep
 
 ## 🚀 Project Roadmap & Team Coordination
 
-### Phase 1: Data Pipeline (✅ In Progress - Agnès)
+### Phase 1: Data Pipeline (✅ Complete - Agnès)
 - [x] EDA and dataset exploration
 - [x] Data preparation and feature engineering
 - [x] Dimensionality reduction (PCA)
 - [x] Temporal splitting (train/test/buffer)
-- [ ] Data documentation and quality metrics
+- [x] Neon database integration (reduced 1M row dataset)
+- [x] Buffer batch preparation for Airflow
+- [x] Data transfer scripts and verification utilities
+- [x] Data documentation and quality metrics
 
 ### Phase 2: Model Development (🚧 In Progress - Julien)
 - [ ] Baseline collaborative filtering models (SVD, ALS, NMF)
@@ -234,11 +168,6 @@ After running the preparation notebook, the following files are created in `prep
 2. Update progress by modifying this README
 3. Document changes and new features
 4. Keep notebooks well-commented for handoffs between phases
-
-**For external contributors**:
-- Please open an issue to discuss proposed changes
-- Follow the existing code style and structure
-- Test thoroughly before submitting PRs
 
 ## 📄 License
 

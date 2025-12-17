@@ -50,7 +50,11 @@ htmlcov/
 
 # Environment variables
 .env
+*.env
 .env.local
+
+# Except example files
+!.env.example
 
 # Logs
 *.log
