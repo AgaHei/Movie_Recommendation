@@ -1,4 +1,4 @@
-# Python virtual environment
+﻿# Python virtual environment
 .venv/
 venv/
 env/
@@ -68,3 +68,14 @@ models/*.pt
 # Temporary files
 *.tmp
 *.temp
+
+# Airflow specific
+airflow/logs/*
+airflow/plugins/*
+!airflow/plugins/.gitkeep
+!airflow/logs/.gitkeep
+airflow/__pycache__/
+airflow/.env
+airflow/airflow-webserver_config.py
+airflow/webserver_config.py
+airflow/unittests.cfg

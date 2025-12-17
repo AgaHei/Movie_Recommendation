@@ -28,7 +28,7 @@ This project implements a recommendation system using collaborative filtering an
 ## 📁 Project Structure
 
 ```
-data/
+Movie_Recommendation/
 ├── notebooks/
 │   ├── 01_EDA_MovieLens_25M.ipynb          # Exploratory data analysis
 │   └── 02_Data_Preparation_MovieLens_25M.ipynb  # Data preparation & feature engineering
@@ -37,6 +37,14 @@ data/
 │   ├── check_rows.py                        # Utility to verify row counts in Neon
 │   ├── .env                                 # Database credentials (not tracked)
 │   └── .env.example                         # Template for database credentials
+├── airflow/                                  # Apache Airflow orchestration
+│   ├── dags/                                # Airflow DAG definitions (coming soon)
+│   ├── logs/                                # Airflow logs (not tracked)
+│   ├── plugins/                             # Custom Airflow plugins (not tracked)
+│   ├── docker-compose.yml                   # Airflow services configuration
+│   ├── Dockerfile                           # Custom Airflow image with dependencies
+│   ├── requirements.txt                     # Airflow-specific Python packages
+│   └── .env                                 # Airflow environment variables (not tracked)
 ├── raw/                                      # Raw MovieLens 25M data files (not tracked)
 ├── prepared/                                 # Processed data artifacts (not tracked)
 │   ├── ratings_initial_ml.parquet          # 1M row reduced dataset for Neon
@@ -61,6 +69,51 @@ The **MovieLens 25M** dataset contains:
 
 **Note**: The `raw/` folder is excluded from Git (see `.gitignore`). Each team member must download the data independently.
 
+## 🚀 Quick Start
+
+### For Data Analysis
+```bash
+# Clone the repository
+git clone https://github.com/AgaHei/Movie_Recommendation.git
+cd Movie_Recommendation
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Download MovieLens 25M dataset
+# Visit: https://grouplens.org/datasets/movielens/25m/
+# Extract to raw/ folder
+
+# Run notebooks in order
+# 1. notebooks/01_EDA_MovieLens_25M.ipynb
+# 2. notebooks/02_Data_Preparation_MovieLens_25M.ipynb
+```
+
+### For Airflow/MLOps
+```bash
+# Ensure Docker Desktop is running
+
+# Navigate to airflow directory
+cd airflow
+
+# Create .env file with your credentials
+cp .env.example .env
+# Edit .env with your NEON_CONNECTION_STRING
+
+# Start Airflow
+docker-compose up -d
+
+# Access Web UI at http://localhost:8080
+# Username: airflow | Password: airflow
+
+# Stop Airflow when done
+docker-compose down
+```
+
 
 ## 📥 Data Management
 
@@ -78,6 +131,73 @@ We use **Neon** (serverless PostgreSQL) for storing prepared data and enabling t
 - `movies` table: 62K movies with features
 - `ratings_buffer` table: Empty structure (batches ingested by Airflow)
 - Metadata tables: `ingestion_metadata`, `model_metrics`, `drift_alerts`
+
+## 🔄 Apache Airflow Orchestration
+
+We use **Apache Airflow** to orchestrate data pipelines, model training, and monitoring workflows.
+
+### Setup & Architecture
+
+**Containerized Setup**:
+- **Custom Docker Image**: Extends `apache/airflow:2.8.1-python3.11` with project dependencies
+- **Services**:
+  - `airflow-webserver`: Web UI (http://localhost:8080)
+  - `airflow-scheduler`: Task scheduling and execution
+  - `postgres`: Metadata database for Airflow
+- **Persistent Volumes**: DAGs, logs, and plugins are mounted from local directories
+
+### Airflow Configuration
+
+**Environment Variables** (`.env` in `airflow/` folder):
+```env
+NEON_CONNECTION_STRING=postgresql://[user]:[password]@[host]/[database]
+MLFLOW_TRACKING_URI=http://mlflow:5000  # (Coming soon)
+```
+
+**Installed Packages** (via custom Dockerfile):
+- pandas, pyarrow - Data processing
+- scipy - Statistical analysis
+- requests - HTTP API calls
+- python-dotenv - Environment management
+
+### Getting Started with Airflow
+
+1. **Prerequisites**:
+   ```bash
+   # Install Docker Desktop (Windows/Mac) or Docker Engine (Linux)
+   # Ensure Docker Compose is installed
+   ```
+
+2. **Start Airflow**:
+   ```bash
+   cd airflow
+   docker-compose up -d
+   ```
+
+3. **Access Web UI**:
+   - URL: http://localhost:8080
+   - Username: `airflow`
+   - Password: `airflow`
+
+4. **Stop Airflow**:
+   ```bash
+   docker-compose down
+   ```
+
+### Planned DAGs (Coming Soon)
+
+1. **Batch Ingestion DAG**: Weekly data ingestion from `prepared/buffer_batches/`
+2. **Model Training DAG**: Periodic retraining on new data
+3. **Drift Detection DAG**: Monitor data quality and distribution shifts
+4. **Model Deployment DAG**: Deploy trained models to production
+
+### Why Airflow?
+
+- **Reproducibility**: Version-controlled workflows
+- **Scheduling**: Automated batch processing (weekly data ingestion)
+- **Monitoring**: Track pipeline health and failures
+- **Scalability**: Distributed task execution
+- **Integration**: Connect data pipelines with MLflow and deployment systems
 
 ## �📊 Key Features
 
@@ -120,12 +240,24 @@ After running the preparation notebook, the following files are created in `prep
 
 ## 🛠️ Technologies Used
 
+### Data Processing & ML
 - **Python 3.12**
 - **pandas** - Data manipulation
 - **NumPy** - Numerical computing
 - **scikit-learn** - Machine learning & PCA
 - **matplotlib & seaborn** - Visualization
 - **PyArrow** - Efficient Parquet I/O
+- **scipy** - Statistical analysis for drift detection
+
+### Orchestration & Infrastructure
+- **Apache Airflow 2.8.1** - Workflow orchestration
+- **Docker & Docker Compose** - Containerization
+- **PostgreSQL 13** - Airflow metadata database
+- **Neon (Serverless PostgreSQL)** - Data warehouse
+
+### MLOps & Deployment (Coming Soon)
+- **MLflow** - Model tracking and versioning
+- **FastAPI** - REST API for serving recommendations
 
 ## 📝 Next Steps
 1. **Baseline Model**: Train SVD/ALS collaborative filtering
@@ -145,6 +277,9 @@ After running the preparation notebook, the following files are created in `prep
 - [x] Buffer batch preparation for Airflow
 - [x] Data transfer scripts and verification utilities
 - [x] Data documentation and quality metrics
+- [x] Apache Airflow setup with Docker
+- [x] Custom Airflow image with project dependencies
+- [ ] Airflow DAGs for batch ingestion and monitoring
 
 ### Phase 2: Model Development (🚧 In Progress - Julien)
 - [ ] Baseline collaborative filtering models (SVD, ALS, NMF)
