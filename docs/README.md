@@ -31,37 +31,37 @@
 
 ## **Documentation Structure:**
 ```
-your-project/
-├── README.md                              ← GitHub landing page
-├── docs/
-│   ├── README.md                          ← Docs navigation hub
-│   │
-│   │
-│   ├── airflow/
-│   │   ├── 01-airflow-setup.md           ← Docker, credentials
-│   │   ├── 02-buffer-ingestion.md        ← How ingestion works
-│   │   ├── 03-drift-monitoring.md        ← Drift detection guide
-│   │   └── 04-training-trigger.md        ← TO BE ADDED (Next week)
-│   │
-│   ├── data/
-│   │   ├── data-pipeline-overview.md     ← Dataset info, preprocessing
-│   │   └── neon-schema.md                ← Database tables, design
-│   │
-│   ├── mlops/
-│   │   ├── architecture-diagram.md       ← Full stack overview
-│   │   └── weekly-simulation-log.md      ← The 3-week results!
-│   │
-│   ├── models/                            # TO BE ADDED
-│   │   └── training-guide.md
-│   │
-│   ├── api/                               # TO BE ADDED
-│   │   └── fastapi-setup.md
-│   │
-│   └── assets/
-│       ├── screenshots/                   ← Airflow, Neon, etc.
-│       └── diagrams/                      ← Architecture diagrams
-│
-├── airflow/
-├── data/
-├── models/
-└── api/
+    your-project/
+    ├── README.md                              ← GitHub landing page
+    ├── docs/
+    │   ├── README.md                          ← Docs navigation hub
+    │   │
+    │   │
+    │   ├── airflow/
+    │   │   ├── 01-airflow-setup.md           ← Docker, credentials
+    │   │   ├── 02-buffer-ingestion.md        ← How ingestion works
+    │   │   ├── 03-drift-monitoring.md        ← Drift detection guide
+    │   │   └── 04-training-trigger.md        ← TO BE ADDED (Next week)
+    │   │
+    │   ├── data/
+    │   │   ├── data-pipeline-overview.md     ← Dataset info, preprocessing
+    │   │   └── neon-schema.md                ← Database tables, design
+    │   │
+    │   ├── mlops/
+    │   │   ├── architecture-diagram.md       ← Full stack overview
+    │   │   └── weekly-simulation-log.md      ← The 3-week results!
+    │   │
+    │   ├── models/                            # TO BE ADDED
+    │   │   └── training-guide.md
+    │   │
+    │   ├── api/                               # TO BE ADDED
+    │   │   └── fastapi-setup.md
+    │   │
+    │   └── assets/
+    │       ├── screenshots/                   ← Airflow, Neon, etc.
+    │       └── diagrams/                      ← Architecture diagrams
+    │
+    ├── airflow/
+    ├── data/
+    ├── models/
+    └── api/
