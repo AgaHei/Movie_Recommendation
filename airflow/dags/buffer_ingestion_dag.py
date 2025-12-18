@@ -181,7 +181,7 @@ def check_buffer_status(**context):
 
 # Create tasks for each batch
 batch_tasks = []
-for i in [1, 3, 5]:  # Only 3 batches to fit storage limits
+for i in [1]:  # Only 1 batch for weekly ingestion (manual trigger)
     task = PythonOperator(
         task_id=f'ingest_batch_{i}',
         python_callable=ingest_batch,
