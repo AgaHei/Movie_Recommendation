@@ -43,6 +43,7 @@ The system demonstrates **industry-standard machine learning operations**, inclu
 - Complete CI/CD/CT/CM pipeline
 - Free-tier infrastructure (€0 budget)
 
+**Please note that this project is a team work in active progress so frequent changes will be introduced to this repository.**
 ---
 
 ## ✨ Key Features
@@ -93,8 +94,8 @@ Data Layer                Orchestration              Training & Deployment
 │ • Meta  │             │ • Monitoring │            │ • Evaluation    │
 │ • Logs  │             │ • Triggers   │            │ • Deployment    │
 └─────────┘             └──────────────┘            └────────┬────────┘
-                                                              │
-                                                              ▼
+                                                             │
+                                                             ▼
                                                     ┌──────────────────┐
                                                     │     MLflow       │
                                                     │  (Experiments)   │
@@ -243,8 +244,8 @@ Our simulation demonstrated progressive drift detection over 3 weeks:
 | Week | Buffer Size | KS Statistic | Mean Change | Decision |
 |------|-------------|--------------|-------------|----------|
 | **1** | 500k ratings | 0.0176 | +0.97% | ✅ No drift - Continue |
-| **2** | 1M ratings | 0.042 | +6.8% | ⚠️ Early signals |
-| **3** | 1.5M ratings | **0.067** | **+12.1%** | 🚨 **DRIFT! Retrain** |
+| **2** | 1M ratings | --- | ---| ⚠️ Potential early signals |
+| **3** | 1.5M ratings | --- | --- | 🚨 Potential DRIFT Retrain |
 
 ### Model Performance Improvement
 
