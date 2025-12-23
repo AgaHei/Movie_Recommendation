@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+mlflow==2.10.2
+python-dotenv
+pandas
+numpy
+scikit-learn
+scipy
+boto3
+psycopg2-binary
+sqlalchemy
