@@ -63,7 +63,7 @@ The system demonstrates **industry-standard machine learning operations**, inclu
 ### 🚀 Production Deployment
 - **FastAPI REST API:** Modern, fast, auto-documented endpoints
 - **Docker Containerization:** Reproducible deployment anywhere
-- **Cloud Hosting:** Deployed on Render/Railway (free tier)
+- **HF Hosting:** Deployed on Hugging Face Spaces (free tier)
 - **Model Versioning:** Seamless updates without downtime
 
 ### 📊 Complete Observability
@@ -83,7 +83,7 @@ The system demonstrates **industry-standard machine learning operations**, inclu
 │                    CINEMATCH MLOPS PIPELINE                 │
 └─────────────────────────────────────────────────────────────┘
 
-Data Layer                Orchestration & Training              Tracking & Deployment
+Data Layer            Orchestration & Training     Tracking & Deployment
     │                          │                              │
     ▼                          ▼                              ▼
 ┌─────────┐             ┌──────────────┐            ┌─────────────────┐
@@ -127,7 +127,7 @@ Data Layer                Orchestration & Training              Tracking & Deplo
 ### Deployment
 - **API Framework:** FastAPI 0.109
 - **Server:** Uvicorn (ASGI)
-- **Hosting:** Render / Railway (free tier)
+- **Hosting:** Hugging Face
 - **Manual Operations:** Airflow-based retraining
 
 ---
