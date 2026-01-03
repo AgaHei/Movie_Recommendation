@@ -1,7 +1,7 @@
 """
-Training Trigger DAG (Mock Version)
+Training Trigger DAG (Operational Version)
 Checks drift alerts and makes retraining decisions
-MOCK: Logs decision without actually triggering GitHub Actions
+Triggers actual model retraining when criteria are met
 """
 
 from airflow import DAG
@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text
 import pandas as pd
 import os
+import subprocess
+from pathlib import Path
 
 # Default arguments
 default_args = {
@@ -23,14 +25,21 @@ default_args = {
 
 # Define the DAG
 dag = DAG(
-    'trigger_retraining_mock',
+    'trigger_retraining_operational',
     default_args=default_args,
-    description='Check drift alerts and make retraining decisions (MOCK - no actual trigger)',
-    schedule_interval=None,  # Manual trigger (or @daily in production)
+    description='Check drift alerts and trigger actual model retraining',
+    schedule_interval=None,  # Manual trigger only
     start_date=datetime(2025, 1, 1),
     catchup=False,
-    tags=['training', 'cinematch', 'trigger', 'mock'],
+    tags=['training', 'cinematch', 'trigger', 'operational'],
 )
+
+# Training configuration
+TRAINING_CONFIG = {
+    'julien_repo_path': '/opt/airflow/movie-recommendation-mlflow',  # Path in container
+    'training_script': 'mlflow_training/train_mlflow.py',
+    'data_output_dir': '/tmp/training_data',
+}
 
 # Retraining criteria thresholds
 RETRAINING_CRITERIA = {
@@ -227,26 +236,108 @@ def evaluate_retraining_criteria(**context):
     context['ti'].xcom_push(key='should_retrain', value=should_retrain)
     
     # Return task_id for branching
-    return 'trigger_retraining_mock' if should_retrain else 'no_retraining_needed'
+    return 'export_training_data' if should_retrain else 'no_retraining_needed'
 
-def trigger_retraining_mock(**context):
+def export_training_data(**context):
     """
-    MOCK: Log what would happen if we triggered GitHub Actions
-    In production version, this calls GitHub API
+    Export data from Neon database for training
     """
     print(f"\n{'='*70}")
-    print(f"🎬 MOCK RETRAINING TRIGGER")
+    print(f"📤 EXPORTING TRAINING DATA FROM NEON")
     print(f"{'='*70}\n")
     
-    print(f"📝 This is a MOCK trigger - no actual GitHub Actions call")
-    print(f"   In production, this would:")
-    print(f"   1. Call GitHub Actions API")
-    print(f"   2. Trigger model_training.yml workflow")
-    print(f"   3. Pass drift information as parameters\n")
+    # Get context data
+    buffer_size = context['ti'].xcom_pull(key='buffer_size', task_ids='check_buffer_size')
     
-    # Get context
+    output_dir = TRAINING_CONFIG['data_output_dir']
+    output_path = Path(output_dir)
+    output_path.mkdir(exist_ok=True, parents=True)
+    
+    neon_conn = os.getenv('NEON_CONNECTION_STRING')
+    engine = create_engine(neon_conn)
+    
+    # Export baseline training data
+    print(f"📊 Exporting baseline training data...")
+    df_train = pd.read_sql("""
+        SELECT "userId", "movieId", rating, timestamp
+        FROM ratings
+        WHERE data_split = 'train'
+        ORDER BY timestamp
+    """, engine)
+    
+    train_file = output_path / "ratings_train.parquet"
+    df_train.to_parquet(train_file, index=False)
+    print(f"✅ Saved: {train_file} ({len(df_train):,} ratings)")
+    
+    # Export buffer data (new data for retraining)
+    print(f"\n📊 Exporting buffer data...")
+    df_buffer = pd.read_sql("""
+        SELECT "userId", "movieId", rating, timestamp
+        FROM ratings_buffer
+        ORDER BY timestamp
+    """, engine)
+    
+    buffer_file = output_path / "ratings_buffer.parquet"
+    df_buffer.to_parquet(buffer_file, index=False)
+    print(f"✅ Saved: {buffer_file} ({len(df_buffer):,} ratings)")
+    
+    # Export test data
+    print(f"\n📊 Exporting test data...")
+    df_test = pd.read_sql("""
+        SELECT "userId", "movieId", rating, timestamp
+        FROM ratings
+        WHERE data_split = 'test'
+        ORDER BY timestamp
+    """, engine)
+    
+    test_file = output_path / "ratings_test.parquet"
+    df_test.to_parquet(test_file, index=False)
+    print(f"✅ Saved: {test_file} ({len(df_test):,} ratings)")
+    
+    # Combine train + buffer for retraining
+    print(f"\n📊 Creating combined dataset (train + buffer)...")
+    df_combined = pd.concat([df_train, df_buffer], ignore_index=True)
+    combined_file = output_path / "ratings_combined.parquet"
+    df_combined.to_parquet(combined_file, index=False)
+    print(f"✅ Saved: {combined_file} ({len(df_combined):,} ratings)")
+    
+    print(f"\n{'='*70}")
+    print(f"✅ DATA EXPORT COMPLETE")
+    print(f"{'='*70}")
+    print(f"Location: {output_path.absolute()}")
+    print(f"Files:")
+    print(f"  • {train_file.name}: {len(df_train):,} ratings (baseline)")
+    print(f"  • {buffer_file.name}: {len(df_buffer):,} ratings (new)")
+    print(f"  • {test_file.name}: {len(df_test):,} ratings (validation)")
+    print(f"  • {combined_file.name}: {len(df_combined):,} ratings (for retraining)")
+    print()
+    
+    # Store file paths for next task
+    data_files = {
+        'train_file': str(train_file.absolute()),
+        'buffer_file': str(buffer_file.absolute()),
+        'test_file': str(test_file.absolute()),
+        'combined_file': str(combined_file.absolute()),
+        'train_size': len(df_train),
+        'buffer_size': len(df_buffer),
+        'combined_size': len(df_combined),
+    }
+    
+    context['ti'].xcom_push(key='data_files', value=data_files)
+    return data_files
+
+def trigger_actual_retraining(**context):
+    """
+    Actually trigger model retraining by calling Julien's training script
+    """
+    print(f"\n{'='*70}")
+    print(f"🚀 TRIGGERING ACTUAL MODEL RETRAINING")
+    print(f"{'='*70}\n")
+    
+    # Get context data
     drift_alerts = context['ti'].xcom_pull(key='drift_alerts', task_ids='check_drift_alerts')
     buffer_size = context['ti'].xcom_pull(key='buffer_size', task_ids='check_buffer_size')
+    data_files = context['ti'].xcom_pull(key='data_files', task_ids='export_training_data')
     
     # Safety check
     if not drift_alerts or len(drift_alerts) == 0:
@@ -257,18 +348,57 @@ def trigger_retraining_mock(**context):
         drift_score = drift_alerts[0]['drift_score']
         feature_name = drift_alerts[0]['feature_name']
     
-    print(f"🔧 Mock GitHub Actions Call:")
-    print(f"\n   URL: https://api.github.com/repos/YOUR_USER/cinematch/actions/workflows/model_training.yml/dispatches")
-    print(f"   Method: POST")
-    print(f"   Headers:")
-    print(f"      Authorization: token GITHUB_TOKEN")
-    print(f"      Accept: application/vnd.github.v3+json")
-    print(f"\n   Payload:")
-    print(f"      ref: main")
-    print(f"      inputs:")
-    print(f"        reason: drift_detected")
-    print(f"        drift_score: {drift_score:.4f}")
-    print(f"        buffer_size: {buffer_size}")
+    # Check if training script exists
+    repo_path = Path(TRAINING_CONFIG['julien_repo_path'])
+    training_script = repo_path / TRAINING_CONFIG['training_script']
+    
+    if not training_script.exists():
+        print(f"❌ Training script not found: {training_script}")
+        print(f"   Please check TRAINING_CONFIG paths in DAG")
+        raise FileNotFoundError(f"Training script not found: {training_script}")
+    
+    print(f"📂 Training script: {training_script}")
+    print(f"📊 Training data: {data_files['combined_size']:,} ratings")
+    print(f"🚨 Drift score: {drift_score:.4f}")
+    print()
+    
+    # Prepare command
+    cmd = [
+        'python',
+        str(training_script),
+        '--data-path', data_files['combined_file'],
+        '--test-path', data_files['test_file'],
+        '--reason', 'drift_detected',
+        '--drift-score', str(drift_score),
+    ]
+    
+    print(f"🔧 Command:")
+    print(f"   {' '.join(cmd)}\n")
+    
+    print(f"⏳ Starting training...\n")
+    print(f"{'─'*70}\n")
+    
+    # Run training
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(repo_path),
+            capture_output=False,  # Show output in real-time
+            text=True
+        )
+        
+        print(f"\n{'─'*70}\n")
+        
+        if result.returncode == 0:
+            print(f"✅ TRAINING COMPLETED SUCCESSFULLY!")
+            success = True
+        else:
+            print(f"❌ Training failed with exit code: {result.returncode}")
+            success = False
+            
+    except Exception as e:
+        print(f"❌ Error running training: {e}")
+        success = False
     
     # Log decision to database
     neon_conn = os.getenv('NEON_CONNECTION_STRING')
@@ -295,28 +425,34 @@ def trigger_retraining_mock(**context):
             (decision, reason, buffer_size, drift_score, notes)
             VALUES (:decision, :reason, :buffer_size, :drift_score, :notes)
         """), {
-            'decision': 'trigger_mock',
+            'decision': 'trigger_actual' if success else 'trigger_failed',
             'reason': 'drift_detected',
             'buffer_size': buffer_size,
-            'drift_score': drift_score,
-            'notes': f"MOCK: Would trigger GitHub Actions. Feature: {feature_name}"
+            'drift_score': float(drift_score),
+            'notes': f"Actual retraining {'successful' if success else 'failed'}. Feature: {feature_name}"
         })
     
     print(f"\n✅ Decision logged to retraining_decisions table")
     
-    print(f"\n{'='*70}")
-    print(f"🎯 MOCK TRIGGER COMPLETE")
-    print(f"{'='*70}")
-    print(f"\n📊 Summary:")
-    print(f"   • Drift detected: {feature_name}")
-    print(f"   • Drift score: {drift_score:.4f}")
-    print(f"   • Buffer size: {buffer_size:,} ratings")
-    print(f"   • Action: MOCK trigger logged")
-    print(f"\n💡 Next Steps:")
-    print(f"   1. Wait for teammate to finish training pipeline")
-    print(f"   2. Upgrade this DAG to call real GitHub Actions API")
-    print(f"   3. Test end-to-end retraining workflow")
-    print(f"\n{'='*70}\n")
+    if success:
+        print(f"\n{'='*70}")
+        print(f"🎉 RETRAINING COMPLETE!")
+        print(f"{'='*70}")
+        print(f"Next steps:")
+        print(f"  1. Check MLflow: {os.getenv('MLFLOW_TRACKING_URI', 'https://julienrouillard-mlflow-movie-recommandation.hf.space/')}")
+        print(f"  2. Verify new model logged")
+        print(f"  3. Check model metrics improved")
+        print(f"  4. Update API if needed")
+        print(f"{'='*70}\n")
+    else:
+        print(f"\n{'='*70}")
+        print(f"❌ RETRAINING FAILED!")
+        print(f"{'='*70}")
+        print(f"Check logs above for error details")
+        print(f"{'='*70}\n")
+        raise Exception("Model retraining failed")
+    
+    return success
 
 def no_retraining_needed(**context):
     """
@@ -402,7 +538,12 @@ def generate_summary_report(**context):
     if len(df_decisions) > 0:
         for idx, row in df_decisions.iterrows():
             date_str = row['decision_date'].strftime('%Y-%m-%d %H:%M')
-            decision_icon = "🚨" if row['decision'] == 'trigger_mock' else "✅"
+            if row['decision'] == 'trigger_actual':
+                decision_icon = "🚀"
+            elif row['decision'] == 'trigger_failed':
+                decision_icon = "❌"
+            else:
+                decision_icon = "✅"
             print(f"   {decision_icon} {date_str} | {row['decision']:15s} | "
                   f"Buffer: {row['buffer_size']:,} | "
                   f"Drift: {row['drift_score']:.4f}" if row['drift_score'] else "Drift: N/A")
@@ -411,7 +552,7 @@ def generate_summary_report(**context):
     
     print(f"\n{'='*70}")
     if should_retrain:
-        print(f"🎯 FINAL STATUS: RETRAINING TRIGGERED (MOCK)")
+        print(f"🎯 FINAL STATUS: RETRAINING TRIGGERED (ACTUAL)")
     else:
         print(f"🎯 FINAL STATUS: NO ACTION - CONTINUE MONITORING")
     print(f"{'='*70}\n")
@@ -435,9 +576,15 @@ task_evaluate = BranchPythonOperator(
     dag=dag,
 )
 
-task_trigger_mock = PythonOperator(
-    task_id='trigger_retraining_mock',
-    python_callable=trigger_retraining_mock,
+task_export_data = PythonOperator(
+    task_id='export_training_data',
+    python_callable=export_training_data,
+    dag=dag,
+)
+
+task_trigger_training = PythonOperator(
+    task_id='trigger_actual_retraining',
+    python_callable=trigger_actual_retraining,
     dag=dag,
 )
 
@@ -461,5 +608,6 @@ task_summary = PythonOperator(
 
 # Set dependencies
 [task_check_alerts, task_check_buffer] >> task_evaluate
-task_evaluate >> [task_trigger_mock, task_no_retrain]
-[task_trigger_mock, task_no_retrain] >> task_join >> task_summary
+task_evaluate >> [task_export_data, task_no_retrain]
+task_export_data >> task_trigger_training
+[task_trigger_training, task_no_retrain] >> task_join >> task_summary
