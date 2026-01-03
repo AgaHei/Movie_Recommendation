@@ -183,22 +183,22 @@ open http://localhost:8080
 
 Our simulation demonstrated progressive drift detection over 3 weeks:
 
-| Weeks | Buffer Size | KS Statistic | Mean Change | Decision                 |
-|------|-------------|------------ --|-------------|--------------------------|
-| **1-6**  | 600k ratings | 0.014    | 0.011       | ✅ No drift - Continue   |
-| **7**    | 200K ratings | 0.097    | 0.065        | 🚨 DRIFT Retrain needed |
+    | Weeks | Buffer Size | KS Statistic | Mean Change | Decision                 |
+    |------|-------------|------------ --|-------------|--------------------------|
+    | **1-6**  | 600k ratings | 0.014    | 0.011       | ✅ No drift - Continue   |
+    | **7**    | 200K ratings | 0.097    | 0.065        | 🚨 DRIFT Retrain needed |
 
 
 ### Model Performance Improvement
 
 After retraining with accumulated buffer data:
 
-| Metric | Baseline Model | Retrained Model | Improvement |
-|--------|----------------|-----------------|-------------|
-| **RMSE** | --- | ---| ---  |
-| **MAE** | --- | --- | --- |
-| **Precision@10** | --- | --- | ---|
-| **Training Data** | 700k | --- | ---|
+    | Metric | Baseline Model | Retrained Model | Improvement |
+    |--------|----------------|-----------------|-------------|
+    | **RMSE** | --- | ---| ---  |
+    | **MAE** | --- | --- | --- |
+    | **Precision@10** | --- | --- | ---|
+    | **Training Data** | 700k | --- | ---|
 
 **Key Achievement:** Automated system detected drift and triggered retraining, resulting in measurable model improvement!
 
