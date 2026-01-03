@@ -25,7 +25,7 @@ default_args = {
 
 # Define the DAG
 dag = DAG(
-    'trigger_retraining_operational',
+    'trigger_retraining_dag',
     default_args=default_args,
     description='Check drift alerts and trigger actual model retraining',
     schedule_interval=None,  # Manual trigger only
