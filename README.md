@@ -38,8 +38,8 @@ The system demonstrates **industry-standard machine learning operations**, inclu
 
 **What makes this project special:**
 - Real-world MLOps architecture (not just a Jupyter notebook!)
-- Continuous monitoring simulating 3 weeks of production operation
-- Automated retraining triggered by data drift
+- Continuous monitoring simulating 7 weeks of production operation
+- Model retraining triggered by data drift
 - Complete CI/CD/CT/CM pipeline
 - Free-tier infrastructure (€0 budget)
 
@@ -55,7 +55,7 @@ The system demonstrates **industry-standard machine learning operations**, inclu
 - **Complete Audit Trail:** Every decision logged to database
 
 ### 🔄 Automated Continuous Training
-- **GitHub Actions Integration:** Triggered automatically when drift detected
+- **Manual Trigger via Airflow:** Retraining triggered manually when drift detected
 - **MLflow Experiment Tracking:** All training runs versioned and comparable
 - **Model Registry:** Automatic promotion of improved models to production
 - **Performance Monitoring:** RMSE, MAE, Precision@K tracked over time
@@ -83,23 +83,18 @@ The system demonstrates **industry-standard machine learning operations**, inclu
 │                    CINEMATCH MLOPS PIPELINE                 │
 └─────────────────────────────────────────────────────────────┘
 
-Data Layer                Orchestration              Training & Deployment
+Data Layer                Orchestration & Training              Tracking & Deployment
     │                          │                              │
     ▼                          ▼                              ▼
 ┌─────────┐             ┌──────────────┐            ┌─────────────────┐
-│  Neon   │◀───────────▶│   Airflow   │───────────▶│ GitHub Action  │
-│  (DB)   │             │   (Docker)   │            │  (CI/CD/CT)     │
+│  Neon   │◀──────────▶│   Airflow    │──────────▶│     MLflow      │
+│  (DB)   │             │   (Docker)   │            │  (Experiments)  │
 │         │             │              │            │                 │
 │ • Data  │             │ • Ingestion  │            │ • Training      │
 │ • Meta  │             │ • Monitoring │            │ • Evaluation    │
-│ • Logs  │             │ • Triggers   │            │ • Deployment    │
-└─────────┘             └──────────────┘            └────────┬────────┘
-                                                             │
-                                                             ▼
-                                                    ┌──────────────────┐
-                                                    │     MLflow       │
-                                                    │  (Experiments)   │
-                                                    └────────┬─────────┘
+│ • Logs  │             │ • Manual     │            │ • Model Registry│
+│         │             │   Retraining │            │                 │
+└─────────┘             └──────────────┘            └────────┬───────-┘
                                                              │
                                                              ▼
                                                     ┌──────────────────┐
@@ -133,7 +128,7 @@ Data Layer                Orchestration              Training & Deployment
 - **API Framework:** FastAPI 0.109
 - **Server:** Uvicorn (ASGI)
 - **Hosting:** Render / Railway (free tier)
-- **CI/CD:** GitHub Actions
+- **Manual Operations:** Airflow-based retraining
 
 ---
 
@@ -181,71 +176,18 @@ open http://localhost:8080
 
 **[📖 Detailed Setup Guide](docs/airflow/01-airflow-setup.md)**
 
----
-
-## 📁 Project Structure
-
-```
-cinematch/
-├── README.md                          ← You are here!
-├── .github/
-│   └── workflows/
-│       ├── model_training.yml         ← CI/CD for training
-│       └── deploy_api.yml             ← Deployment automation
-│
-├── airflow/                           ← Orchestration
-│   ├── dags/
-│   │   ├── buffer_ingestion_dag.py   ← Data loading
-│   │   ├── drift_monitoring_dag.py   ← Drift detection
-│   │   └── trigger_retraining_dag.py ← Training trigger
-│   ├── docker-compose.yml
-│   └── .env.example
-│
-├── data/                              ← Data pipeline
-│   ├── raw/                           ← Original MovieLens
-│   ├── prepared/                      ← Processed datasets
-│   │   ├── ratings_initial_ml.parquet
-│   │   └── buffer_batches/
-│   └── ingestion_scripts/
-│       └── load_academic_dataset.py
-│
-├── models/                            ← ML training
-│   ├── train_model.py                ← Training script
-│   ├── evaluate.py                   ← Model evaluation
-│   └── requirements.txt
-│
-├── api/                               ← Deployment
-│   ├── main.py                       ← FastAPI app
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-└── docs/                              ← Documentation
-    ├── README.md                      ← Docs navigation
-    ├── airflow/
-    │   ├── 01-airflow-setup.md
-    │   ├── 02-buffer-ingestion.md
-    │   └── 03-drift-monitoring.md
-    ├── data/
-    │   ├── data-pipeline-overview.md
-    │   └── neon-schema.md
-    └── mlops/
-        ├── architecture-diagram.md
-        └── weekly-simulation-log.md
-```
-
----
 
 ## 📊 Results
 
-### 3-Week Drift Monitoring Simulation
+### 7-Week Drift Monitoring Simulation
 
 Our simulation demonstrated progressive drift detection over 3 weeks:
 
-| Week | Buffer Size | KS Statistic | Mean Change | Decision |
-|------|-------------|--------------|-------------|----------|
-| **1** | 500k ratings | 0.0176 | +0.97% | ✅ No drift - Continue |
-| **2** | 1M ratings | --- | ---| ⚠️ Potential early signals |
-| **3** | 1.5M ratings | --- | --- | 🚨 Potential DRIFT Retrain |
+| Weeks | Buffer Size | KS Statistic | Mean Change | Decision                 |
+|------|-------------|------------ --|-------------|--------------------------|
+| **1-6**  | 600k ratings | 0.014    | 0.011       | ✅ No drift - Continue   |
+| **7**    | 200K ratings | 0.097    | 0.065        | 🚨 DRIFT Retrain needed |
+
 
 ### Model Performance Improvement
 
@@ -273,8 +215,8 @@ After retraining with accumulated buffer data:
 | Name | Role | Responsibilities |
 |------|------|------------------|
 | **[Agnès]** | Data Pipeline & Monitoring | Airflow orchestration, drift detection, data engineering, Neon database design |
-| **[Julien]** | Model Training & Experimentation | Collaborative filtering models, MLflow integration, hyperparameter tuning |
-| **[Matéo]** | Deployment & API | FastAPI development, Docker containerization, cloud deployment |
+| **[Julien]** | Model Training & Experimentation | Collaborative filtering models, MLflow integration, hyperparameter tuning, FastAPI development |
+| **[Matéo]** | Deployment & Project coordination| Testing at all stages, Docker containerization, deployment |
 
 ### Collaboration
 
@@ -305,14 +247,44 @@ Comprehensive documentation is available in the [`/docs`](docs/) directory:
 
 ---
 
+## 🚀 Future Enhancements
+
+### Planned Improvements (Phase 2)
+
+#### 🤖 Automated CI/CD with GitHub Actions
+- **Automated Retraining:** Trigger training via GitHub API when drift detected
+- **Continuous Deployment:** Auto-deploy improved models to production
+- **Pipeline Integration:** Seamless Airflow → GitHub Actions workflow
+- **Benefits:** Zero-touch MLOps, faster iteration cycles
+
+#### 📏 Advanced Monitoring
+- **Real-time Dashboards:** Grafana/Plotly integration
+- **Alert System:** Email/Slack notifications for drift events
+- **Performance Tracking:** A/B testing for model versions
+- **Data Quality Monitoring:** Schema validation, anomaly detection
+
+#### 🌐 Production Scalability
+- **Kubernetes Deployment:** Container orchestration at scale
+- **Load Balancing:** Handle high-traffic recommendation requests
+- **Caching Layer:** Redis for faster recommendation serving
+- **Multi-model Serving:** Support for different recommendation algorithms
+
+#### 📋 Enhanced ML Features
+- **Deep Learning Models:** Neural collaborative filtering
+- **Content-based Filtering:** Hybrid recommendation approach
+- **Online Learning:** Real-time model updates
+- **Explainable AI:** Recommendation reasoning
+
+---
+
 ## 🎓 Learning Outcomes
 
 This project demonstrates skills in:
 
 ### MLOps Practices
-✅ **Continuous Integration (CI)** - Automated code testing  
-✅ **Continuous Deployment (CD)** - Automated model deployment  
-✅ **Continuous Training (CT)** - Drift-triggered retraining  
+✅ **Continuous Integration (CI)** - Code quality and testing (planned: automated)  
+✅ **Continuous Deployment (CD)** - Manual model deployment (planned: automated)  
+✅ **Continuous Training (CT)** - Drift-triggered retraining (manual trigger)  
 ✅ **Continuous Monitoring (CM)** - Statistical drift detection  
 
 ### Technical Skills
@@ -327,7 +299,7 @@ This project demonstrates skills in:
 ✅ **FastAPI** - Modern API development  
 ✅ **Docker** - Containerization and deployment  
 ✅ **PostgreSQL** - Relational database design  
-✅ **GitHub Actions** - CI/CD automation  
+🔄 **GitHub Actions** - CI/CD automation (future enhancement)  
 
 ---
 
@@ -366,7 +338,7 @@ This project is an academic work created for the Jedha Bootcamp final project (D
 - **Week 2-3:** Drift monitoring implementation
 - **Week 3-4:** Model training & MLflow integration
 - **Week 4:** API deployment & final polish
-- **Presentation:** [Date TBD]
+- **Presentation:** [January 8th 2026]
 
 **Status:** 🚧 In Progress - Data Pipeline Complete ✅
 
