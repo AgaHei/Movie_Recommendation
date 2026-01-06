@@ -7,6 +7,7 @@ Triggers actual model retraining when criteria are met
 from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.empty import EmptyOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text
 import pandas as pd
@@ -588,6 +589,13 @@ task_trigger_training = PythonOperator(
     dag=dag,
 )
 
+task_trigger_after_tests = TriggerDagRunOperator(
+    task_id='trigger_after_training_tests',
+    trigger_dag_id='after_training_tests_dag',
+    wait_for_completion=False,
+    dag=dag,
+)
+
 task_no_retrain = PythonOperator(
     task_id='no_retraining_needed',
     python_callable=no_retraining_needed,
@@ -609,5 +617,5 @@ task_summary = PythonOperator(
 # Set dependencies
 [task_check_alerts, task_check_buffer] >> task_evaluate
 task_evaluate >> [task_export_data, task_no_retrain]
-task_export_data >> task_trigger_training
-[task_trigger_training, task_no_retrain] >> task_join >> task_summary
+task_export_data >> task_trigger_training >> task_trigger_after_tests
+[task_trigger_after_tests, task_no_retrain] >> task_join >> task_summary

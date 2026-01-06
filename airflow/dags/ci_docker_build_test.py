@@ -6,7 +6,11 @@ import os
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 
-PROJECT_DIR = os.environ.get("MLFLOW_TRAINING_DIR", "/opt/airflow/mlflow_training")
+CINEMATCH_ROOT = os.environ.get("CINEMATCH_ROOT", "/opt/airflow/cinematch")
+PROJECT_DIR = os.environ.get(
+    "MLFLOW_TRAINING_DIR",
+    os.path.join(CINEMATCH_ROOT, "movie-recommendation-mlflow", "mlflow_training"),
+)
 IMAGE_NAME = os.environ.get("MLFLOW_TRAINING_IMAGE", "mlflow-training")
 TAG = "{{ ds_nodash }}-{{ run_id | replace(':','_') | replace('+','_') }}"
 
@@ -22,7 +26,13 @@ with DAG(
         bash_command=f"""
         set -e
         cd {PROJECT_DIR}
-        pytest -q tests/before_training
+        VENV_DIR=".venv_ci"
+        if [ ! -d "$VENV_DIR" ]; then
+          python -m venv "$VENV_DIR"
+          "$VENV_DIR/bin/pip" install -r requirements.txt
+        fi
+        export PYTHONPATH="$PWD"
+        "$VENV_DIR/bin/pytest" -q tests/before_training
         """,
     )
 
@@ -41,10 +51,8 @@ with DAG(
         set -e
         cd {PROJECT_DIR}
         docker run --rm \
-          -v "$PWD":/app \
-          -w /app \
           {IMAGE_NAME}:{TAG} \
-          bash -lc "pytest -q tests/before_training"
+          bash -lc "export PYTHONPATH=/app && pytest -q tests/before_training"
         """,
     )
 
