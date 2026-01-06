@@ -5,7 +5,7 @@ Triggers actual model retraining when criteria are met
 """
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator, BranchPythonOperator
+from airflow.operators.python import PythonOperator, BranchPythonOperator, ShortCircuitOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from datetime import datetime, timedelta
@@ -37,7 +37,7 @@ dag = DAG(
 
 # Training configuration
 TRAINING_CONFIG = {
-    'julien_repo_path': '/opt/airflow/movie-recommendation-mlflow',  # Path in container
+    'cinematch_root': os.getenv('CINEMATCH_ROOT', '/opt/airflow/cinematch'),
     'training_script': 'mlflow_training/train_mlflow.py',
     'data_output_dir': '/tmp/training_data',
 }
@@ -350,7 +350,7 @@ def trigger_actual_retraining(**context):
         feature_name = drift_alerts[0]['feature_name']
     
     # Check if training script exists
-    repo_path = Path(TRAINING_CONFIG['julien_repo_path'])
+    repo_path = Path(TRAINING_CONFIG['cinematch_root']) / 'movie-recommendation-mlflow'
     training_script = repo_path / TRAINING_CONFIG['training_script']
     
     if not training_script.exists():
@@ -454,6 +454,13 @@ def trigger_actual_retraining(**context):
         raise Exception("Model retraining failed")
     
     return success
+
+def should_run_after_tests(**context):
+    """
+    Only run after-training tests if retraining completed successfully.
+    """
+    retrain_success = context['ti'].xcom_pull(task_ids='trigger_actual_retraining')
+    return bool(retrain_success)
 
 def no_retraining_needed(**context):
     """
@@ -589,6 +596,12 @@ task_trigger_training = PythonOperator(
     dag=dag,
 )
 
+task_check_training_success = ShortCircuitOperator(
+    task_id='check_training_success',
+    python_callable=should_run_after_tests,
+    dag=dag,
+)
+
 task_trigger_after_tests = TriggerDagRunOperator(
     task_id='trigger_after_training_tests',
     trigger_dag_id='after_training_tests_dag',
@@ -617,5 +630,5 @@ task_summary = PythonOperator(
 # Set dependencies
 [task_check_alerts, task_check_buffer] >> task_evaluate
 task_evaluate >> [task_export_data, task_no_retrain]
-task_export_data >> task_trigger_training >> task_trigger_after_tests
+task_export_data >> task_trigger_training >> task_check_training_success >> task_trigger_after_tests
 [task_trigger_after_tests, task_no_retrain] >> task_join >> task_summary

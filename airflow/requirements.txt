@@ -11,5 +11,8 @@ requests==2.31.0
 # Environment variables
 python-dotenv==1.0.0
 
+# MLflow for training script
+mlflow==2.11.3
+
 # Pytest for testing
 pytest==7.4.2
