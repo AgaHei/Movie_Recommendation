@@ -179,24 +179,109 @@ def check_buffer_status(**context):
         'num_batches': num_batches
     }
 
-# Create tasks for each batch
-batch_tasks = []
-for i in [7]:  # individual batches for weekly ingestion (manual trigger)
-    task = PythonOperator(
-        task_id=f'ingest_batch_{i}',
-        python_callable=ingest_batch,
-        op_kwargs={'batch_number': i},
-        dag=dag,
+
+def get_next_batch_to_ingest(**context):
+    """
+    Determine which batch should be ingested next
+    Returns the batch number (1-8) or None if all batches are ingested
+    """
+    print(f"\n{'='*60}")
+    print(f"🔍 DETECTING NEXT BATCH TO INGEST")
+    print(f"{'='*60}\n")
+    
+    neon_conn = os.getenv('NEON_CONNECTION_STRING')
+    engine = create_engine(neon_conn)
+    
+    # Get all ingested batches
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT DISTINCT batch_id
+            FROM ratings_buffer
+            ORDER BY batch_id
+        """))
+        
+        ingested_batches = [row[0] for row in result]
+    
+    print(f"📦 Already ingested batches: {ingested_batches}")
+    
+    # Find next batch to ingest (1-8)
+    for i in range(1, 9):  # Batches 1 to 8
+        batch_id = f'batch_w{i}'
+        if batch_id not in ingested_batches:
+            print(f"✅ Next batch to ingest: {i}")
+            print(f"{'='*60}\n")
+            context['ti'].xcom_push(key='next_batch', value=i)
+            return i
+    
+    # All batches ingested
+    print(f"🎉 All batches (1-8) have been ingested!")
+    print(f"{'='*60}\n")
+    context['ti'].xcom_push(key='next_batch', value=None)
+    return None
+
+
+# Task 1: Detect next batch to ingest
+detect_batch_task = PythonOperator(
+    task_id='detect_next_batch',
+    python_callable=get_next_batch_to_ingest,
+    dag=dag,
+)
+
+# Task 2: Ingest the detected batch (reads batch number from XCom)
+def ingest_next_batch(**context):
+    """Ingest the next batch detected by detect_next_batch"""
+    batch_number = context['ti'].xcom_pull(key='next_batch', task_ids='detect_next_batch')
+    
+    if batch_number is None:
+        print("🎉 All batches already ingested. Nothing to do!")
+        return None
+    
+    # Call the original ingest_batch function
+    return ingest_batch(batch_number, **context)
+
+ingest_task = PythonOperator(
+    task_id='ingest_detected_batch',
+    python_callable=ingest_next_batch,
+    dag=dag,
+)
+
+# Task 3: Trigger batch predictions with proper conf
+def trigger_batch_predictions_task(**context):
+    """Trigger batch_predictions DAG with the correct batch_id"""
+    from airflow.api.common.trigger_dag import trigger_dag
+    
+    batch_number = context['ti'].xcom_pull(key='next_batch', task_ids='detect_next_batch')
+    
+    if batch_number is None:
+        print("⏭️  No batch to predict. Skipping.")
+        return None
+    
+    batch_id = f'batch_w{batch_number}'
+    print(f"🚀 Triggering batch_predictions with batch_id={batch_id}")
+    
+    trigger_dag(
+        dag_id='batch_predictions',
+        conf={'batch_id': batch_id},
+        execution_date=None,
+        replace_microseconds=False
     )
-    batch_tasks.append(task)
+    
+    print(f"✅ Successfully triggered batch_predictions")
+    return batch_id
+
+trigger_task = PythonOperator(
+    task_id='trigger_batch_predictions',
+    python_callable=trigger_batch_predictions_task,
+    dag=dag,
+)
 
 
-# Status check task
+# Task 4: Status check
 status_task = PythonOperator(
     task_id='check_buffer_status',
     python_callable=check_buffer_status,
     dag=dag,
 )
 
-# Set dependencies: All batches must complete before status check
-batch_tasks >> status_task
+# Dependencies
+detect_batch_task >> ingest_task >> trigger_task >> status_task
