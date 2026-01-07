@@ -17,11 +17,18 @@
 - [Architecture](#-architecture)
 - [Tech Stack](#-tech-stack)
 - [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
+- [Deployed Applications](#-deployed-applications)
+- [Jury Presentation Components](#-jury-presentation-components-january-8th-2026)
 - [Results](#-results)
 - [Team](#-team)
+- [Repository Structure](#-repository-structure)
+- [Comprehensive Airflow DAGs](#-comprehensive-airflow-dags)
 - [Documentation](#-documentation)
+- [Future Enhancements](#-future-enhancements)
+- [Learning Outcomes](#-learning-outcomes)
 - [Acknowledgments](#-acknowledgments)
+- [License](#-license)
+- [Project Timeline](#-project-timeline)
 
 ---
 
