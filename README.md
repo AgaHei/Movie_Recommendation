@@ -191,12 +191,13 @@ open http://localhost:8080
   https://julienrouillard-movie-recommendation-api.hf.space/docs  
   *Production REST API with interactive documentation*
 
-#### Local Development Tools
+#### Deployed Development Tools
 - **📊 MLOps Monitoring Dashboard** (Streamlit)  
-  `streamlit run dashboard/cinematch_dashboard.py`  
+  https://movierecommendation-hjhgd45vqk4zdaprsh6arw.streamlit.app/  
   *Real-time drift monitoring, pipeline status, and system health*
 
 - **🎬 Movie Recommendation Demo** (Streamlit)  
+  https://julienrouillard-movie-recommendation-interface.hf.space/  
   *Interactive recommendation system demonstration*
 
 ---
@@ -206,7 +207,7 @@ open http://localhost:8080
 ### 🖥️ **Live Demo Applications**
 
 #### 1. **📊 MLOps Monitoring Dashboard** (Streamlit)
-**Local Run:** `streamlit run dashboard/cinematch_dashboard.py`
+**Live Demo:** https://movierecommendation-hjhgd45vqk4zdaprsh6arw.streamlit.app/
 
 **Key Features for Presentation:**
 - ✨ **Real-time drift detection visualization** - KS statistics over time
@@ -221,6 +222,7 @@ open http://localhost:8080
 3. Pipeline Status → MLOps architecture and retraining decisions
 
 #### 2. **🎬 Movie Recommendation Demo** (Streamlit)
+**Live Demo:** https://julienrouillard-movie-recommendation-interface.hf.space/  
 **Interactive User Experience Demo**
 
 **Key Features for Presentation:**
@@ -327,21 +329,19 @@ cinematches/
 
 ## 📊 Comprehensive Airflow DAGs
 
-Our MLOps pipeline includes **4 specialized DAGs** handling all aspects of the ML lifecycle:
+Our MLOps pipeline includes **7 specialized DAGs** handling all aspects of the ML lifecycle:
 
-### 🔄 Data Ingestion - `buffer_ingestion_weekly.py`
+### 📊 Data Pipeline DAGs
+
+#### 🔄 Data Ingestion - `buffer_ingestion_weekly.py`
 - **Purpose:** Simulates weekly data ingestion from production systems
 - **Features:** Incremental loading, data validation, schema enforcement
 - **Trigger:** Weekly schedule or manual execution
 - **Output:** New ratings data loaded to buffer tables
 
-### 🧪 Data Testing - `data_testing.py`  
-- **Purpose:** Validates data quality and schema compliance
-- **Features:** Statistical tests, outlier detection, completeness checks
-- **Trigger:** After each data ingestion
-- **Output:** Data quality reports and validation logs
+### 🔍 Monitoring & Analysis DAGs
 
-### 📈 Drift Monitoring - `drift_monitoring.py`
+#### 📈 Drift Monitoring - `drift_monitoring.py`
 - **Purpose:** Statistical drift detection using KS tests and distribution analysis
 - **Features:** 
   - Kolmogorov-Smirnov statistical testing
@@ -351,7 +351,19 @@ Our MLOps pipeline includes **4 specialized DAGs** handling all aspects of the M
 - **Trigger:** Daily monitoring schedule
 - **Output:** Drift alerts and retraining recommendations
 
-### 🔄 Retraining Pipeline - `trigger_retraining_dag.py`
+#### 🎯 Batch Predictions - `batch_predictions_dag.py`
+- **Purpose:** Model drift detection through performance evaluation
+- **Features:**
+  - Batch prediction processing via REST API
+  - MAE/RMSE performance monitoring  
+  - Automated retraining trigger on performance degradation
+  - Prediction results storage and tracking
+- **Trigger:** Triggered by buffer ingestion with batch_id
+- **Output:** Performance metrics and drift alerts
+
+### 🤖 Model Training & Deployment DAGs
+
+#### 🔄 Retraining Pipeline - `trigger_retraining_dag.py`
 - **Purpose:** Orchestrates model retraining when drift is detected
 - **Features:**
   - Automated model training with accumulated buffer data
@@ -360,6 +372,35 @@ Our MLOps pipeline includes **4 specialized DAGs** handling all aspects of the M
   - Automated promotion of improved models
 - **Trigger:** Manual execution when drift alerts are confirmed
 - **Output:** New model versions in MLflow registry
+
+#### ✅ After Training Tests - `after_training_tests_dag.py`
+- **Purpose:** Post-training validation and quality assurance
+- **Features:**
+  - Automated testing of newly trained models
+  - Model performance validation
+  - Integration testing with MLflow
+- **Trigger:** Manual execution after model retraining
+- **Output:** Training validation reports
+
+### 🚀 CI/CD & Testing DAGs
+
+#### 🧪 CI Test Runner - `ci_run_tests.py`
+- **Purpose:** Continuous integration testing before pipeline execution
+- **Features:**
+  - Pytest execution within Airflow container
+  - Automated downstream DAG triggering on success
+  - Pre-deployment validation
+- **Trigger:** Manual execution for CI workflows
+- **Output:** Test results and pipeline validation
+
+#### 🐳 Docker Build Testing - `ci_docker_build_test.py`
+- **Purpose:** Docker containerization testing and validation
+- **Features:**
+  - Docker image building and testing
+  - Container environment validation
+  - Pre-training Docker setup verification
+- **Trigger:** Manual execution for deployment validation
+- **Output:** Docker build status and container readiness
 
 ---
 
