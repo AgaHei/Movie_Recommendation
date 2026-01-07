@@ -14,9 +14,15 @@ from dotenv import load_dotenv
 import os
 from pathlib import Path
 
-# Load .env from airflow folder
+# Load environment variables
+# Try local .env first (for local development)
 env_path = Path(__file__).parent.parent / 'airflow' / '.env'
-load_dotenv(env_path)
+if env_path.exists():
+    load_dotenv(env_path)
+    print(f"✅ Loaded .env from: {env_path}")
+else:
+    # In Streamlit Cloud, use secrets
+    print(f"ℹ️  Running in cloud - using Streamlit secrets")
 
 # ══════════════════════════════════════════════════════════════════════════════════════
 # ═══════════════════════════════════ PAGE CONFIG ══════════════════════════════════════

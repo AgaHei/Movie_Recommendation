@@ -199,7 +199,7 @@ st.sidebar.image("logo.png", use_column_width=True)
 ## 📝 File Structure
 
 ```
-your-project/
+cinematch/
 ├── cinematch_dashboard.py   # Main dashboard
 ├── requirements.txt          # Dependencies
 └── README_DASHBOARD.md       # This file
